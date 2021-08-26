@@ -47,6 +47,8 @@ class focal_loss(nn.Module):
 
         # 这里并没有直接使用log_softmax, 因为后面会用到softmax的结果(当然也可以使用log_softmax,然后进行exp操作)
         preds_softmax = F.softmax(preds, dim=1)
+        # 对所求概率进行 clamp 操作，不然当某一概率过小时，进行 log 操作，会使得 loss 变为 nan!!!
+        preds_softmax = preds_softmax.clamp(min=0.0001, max=1.0)
         preds_logsoft = torch.log(preds_softmax)
 
         # 这部分实现nll_loss ( crossempty = log_softmax + nll )
