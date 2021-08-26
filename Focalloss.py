@@ -35,28 +35,28 @@ class focal_loss(nn.Module):
         self.gamma = gamma
         self.alpha = self.alpha.to(device)
 
-    def forward(self, preds, labels):
+    def forward(self, predict, labels):
         """
         focal_loss损失计算
-        :param preds: 预测类别. size: [Batch size, Class num] ,
+        :param predict: 预测类别. size: [Batch size, Class num] ,
         :param labels:  实际类别. size: [Batch size]
         :return:
         """
 
-        preds = preds.view(-1, preds.size(-1))
+        predict = predict.view(-1, predict.size(-1))
 
         # 这里并没有直接使用log_softmax, 因为后面会用到softmax的结果(当然也可以使用log_softmax,然后进行exp操作)
-        preds_softmax = F.softmax(preds, dim=1)
+        predict_softmax = F.softmax(predict, dim=1)
         # 对所求概率进行 clamp 操作，不然当某一概率过小时，进行 log 操作，会使得 loss 变为 nan!!!
-        preds_softmax = preds_softmax.clamp(min=0.0001, max=1.0)
-        preds_logsoft = torch.log(preds_softmax)
+        predict_softmax = predict_softmax.clamp(min=0.0001, max=1.0)
+        predict_logsoft = torch.log(predict_softmax)
 
         # 这部分实现nll_loss ( Cross Entropy = log_softmax + nll )
-        preds_softmax = preds_softmax.gather(1, labels.view(-1, 1))
-        preds_logsoft = preds_logsoft.gather(1, labels.view(-1, 1))
+        predict_softmax = predict_softmax.gather(1, labels.view(-1, 1))
+        predict_logsoft = predict_logsoft.gather(1, labels.view(-1, 1))
         alpha = self.alpha.gather(0, labels.view(-1))
-        loss = -torch.mul(torch.pow((1 - preds_softmax), self.gamma), preds_logsoft)
-        # torch.pow((1-preds_softmax), self.gamma) 为focal loss中 (1-pt)**γ
+        loss = -torch.mul(torch.pow((1 - predict_softmax), self.gamma), predict_logsoft)
+        # torch.pow((1-predict_softmax), self.gamma) 为focal loss中 (1-pt)**γ
 
         loss = torch.mul(alpha, loss.t())
         if self.size_average:
