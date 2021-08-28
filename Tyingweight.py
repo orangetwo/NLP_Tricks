@@ -4,8 +4,10 @@ from torch import nn
 # https://zhuanlan.zhihu.com/p/358599463
 # introduce nn.functional.pad
 
+# out_embeddings : nn.Linear
+# input_embeddings : nn.Embedding
 def tie_weights(output_embeddings, input_embeddings):
-    """Tie or clone module weights depending of whether we are using TorchScript or not"""
+    """Tie weights"""
     output_embeddings.weight = input_embeddings.weight
 
     if getattr(output_embeddings, "bias", None) is not None:
