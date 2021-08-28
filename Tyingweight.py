@@ -50,3 +50,12 @@ they are represented by the same exact tensor. Thus, if we change one of the par
 You might wonder, when parameters are tied what happens to the gradients? Since the model parameters contain gradients, 
 the gradients of the second hidden layer and the third hidden layer are added together during backpropagation.
 """
+
+"""
+https://github.com/pytorch/examples/blob/master/word_language_model/model.py#L28
+a example of tying weight in rnn model
+encoder = nn.Embedding(ntoken, ninp)
+decoder = nn.Linear(nhid, ntoken)
+decoder.weight = encoder.weight
+
+"""
