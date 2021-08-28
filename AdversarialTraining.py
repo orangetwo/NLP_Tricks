@@ -11,7 +11,7 @@ https://zhuanlan.zhihu.com/p/91269728
 import torch
 
 
-class FGM():
+class FGM:
 	def __init__(self, model):
 		self.model = model
 		self.backup = {}
@@ -58,7 +58,7 @@ for batch_input, batch_label in data:
 import torch
 
 
-class PGD():
+class PGD:
 	def __init__(self, model):
 		self.model = model
 		self.emb_backup = {}
