@@ -87,7 +87,8 @@ def beam_search_generate(context,
         for _ in range(batch_size)
     ]
 
-    # 每个beam容器的得分，共batch_size*num_beams个
+    # 每个beam容器的得分
+    # beam_scores : (batch size * num beams)
     beam_scores = torch.zeros((batch_size, num_beams), dtype=torch.float, device=device)
     beam_scores = beam_scores.view(-1)
 
@@ -119,22 +120,39 @@ def beam_search_generate(context,
         # 这里可以做一大堆操作减少重复 #
         ###########################
 
-        # 计算序列条件概率的，因为取了log，所以直接相加即可。
-        # (batch_size * num_beams, vocab_size)
+        """
+        计算序列条件概率的，因为取了log，所以直接相加即可。
+        beam_scores : (batch size * num beams) 表示序列之前的log-softmax之和, 共batch * num beams 个序列
+        beam_scores[:, None] : (batch size * num beams, 1)
+        beam_scores[:, None].expand_as(scores) : (batch size * num beams , vocab size), 
+        如((batch size * num beams 设定为5, vocab size 设定为4): 
+        
+        beam_score                     ->                beam_scores[:, None].expand_as(scores)
+        tensor([[-1.4581],                               tensor([[-1.4581, -1.4581, -1.4581, -1.4581],
+                [ 1.7265],                                       [ 1.7265,  1.7265,  1.7265,  1.7265],
+                [-0.0455],                                       [-0.0455, -0.0455, -0.0455, -0.0455],
+                [ 0.8145],                                       [ 0.8154,  0.8154,  0.8154,  0.8154],
+                [ 1.7904]])                                      [ 1.7904,  1.7904,  1.7904,  1.7904]])
+        """
+        # next_scores: (batch_size * num_beams, vocab size)
         next_scores = scores + beam_scores[:, None].expand_as(scores)
 
-        # 为了提速，将结果重排成图中3的形状
+        # 为了提速，将结果重排成图中3的形状,方便取top k
+        # next_scores : (batch size, num beams * vocab_size)
         next_scores = next_scores.view(
             batch_size, num_beams * vocab_size
-        )  # (batch_size, num_beams * vocab_size)
+        )
 
         # 取出分数最高的token（图中黑点）和其对应得分
         # sorted=True，保证返回序列是有序的
+        # 取的 tokens的个数要 >= 2*num beams, 如果小于 2*num beams, 假设其中含有 num beams个eos,则之后的score维度要发生改变
         next_scores, next_tokens = torch.topk(next_scores, 2 * num_beams, dim=1, largest=True, sorted=True)
 
-        # 下一个时间步整个batch的beam列表
-        # 列表中的每一个元素都是三元组
-        # (分数, token_id, beam_id)
+        """
+        下一个时间步整个batch的beam列表
+        列表中的每一个元素都是三元组
+        (分数, token_id, beam_id)
+        """
         next_batch_beam = []
 
         # 对每一个样本进行扩展
@@ -147,6 +165,10 @@ def beam_search_generate(context,
                 continue
 
             # 当前样本下一个时间步的beam列表
+            """
+            存在三元组, 假设当前词预测出为 "家", 则有 ("我想回家"的得分, "家"对应的词典的位置, "我想回"在input_ids中的位置)
+            有了三元组 就可以更新"我想回"这个序列了
+            """
             next_sent_beam = []
 
             # 对于还未结束的样本需要找到分数最高的num_beams个扩展
@@ -157,18 +179,24 @@ def beam_search_generate(context,
             ):
                 # get beam and word IDs
                 # 这两行可参考图中3进行理解
+                # 对于next_scores
                 beam_id = beam_token_id // vocab_size
                 token_id = beam_token_id % vocab_size
 
+                # 用来判定是哪个序列,作用在 input_ids中, input_ids : (batch size * num beams, current length)
                 effective_beam_id = batch_idx * num_beams + beam_id
 
                 # 如果出现了EOS token说明已经生成了完整句子
                 if (eos_token_id is not None) and (token_id.item() == eos_token_id):
                     # if beam_token does not belong to top num_beams tokens, it should not be added
+
+                    # eos token的排名是不是在num beams排名开外
                     is_beam_token_worse_than_top_num_beams = beam_token_rank >= num_beams
+                    # eos token的排名在前num beams排名开外(不在候选的vocab中的概率最大的前num beams个中)
                     if is_beam_token_worse_than_top_num_beams:
                         continue
                     # 往容器中添加这个序列
+                    # input_ids 存储序列的token id
                     generated_hyps[batch_idx].add(
                         input_ids[effective_beam_id].clone(), beam_token_score.item(),
                     )
