@@ -114,7 +114,7 @@ def beam_search_generate(encoder_output,
 
     encoder_output = torch.unsqueeze(encoder_output, 1).repeat(1, num_beams, 1, 1).\
         reshape(batch_size * num_beams, encoder_output.shape[1], encoder_output[2]).to(device)
-    encoder_mask =
+
 
     # 建立beam容器，每个样本一个
     generated_hyps = [
