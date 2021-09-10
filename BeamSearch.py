@@ -48,6 +48,13 @@ class BeamHypotheses(object):
         if len(self) < self.num_beams:
             return False
         else:
+            """
+            虽然这里transformers库中提供了cur_len,但是我人为这个cur_len应该永久被设定为None, 
+            假设 len(self.beams) 此时已经满足了 等于 beam size, 在假设 beams有 这样一个序列 "我想回家"
+            但是 如果cur_len 不为None,即为序列吃长度时,
+            可能存在 best_sum_logprobs("我想回家")/ 4 比 best_sum_logprobs("我想回家睡觉")/6 小
+            而此时 is_done 可能已经为 True(存在这种可能性) 就没办法更新 beam
+            """
             if cur_len is None:
                 cur_len = self.max_length
             cur_score = best_sum_logprobs / cur_len ** self.length_penalty
@@ -56,7 +63,31 @@ class BeamHypotheses(object):
             return ret
 
 
-def beam_search_generate(context,
+def MaskForDecoder(x, pad_idx, mode='decoder'):
+    # TODO: define your mask function for your decoder
+    # for test
+    def get_pad_mask(seq, pad_idx):
+        # src_mask = [batch size, 1, src len]
+        return (seq != pad_idx).unsqueeze(-2)
+
+    def get_subsequent_mask(seq):
+        ''' For masking out the subsequent info. '''
+        # seq : [batch size, trg len]
+        sz_b, len_s = seq.size()
+
+        # subsequent_mask: [1, trg len, trg len]
+        subsequent_mask = (1 - torch.triu(
+            torch.ones((1, len_s, len_s), device=seq.device), diagonal=1)).bool()
+        return subsequent_mask
+
+    if mode == 'decoder':
+        return get_pad_mask(x, pad_idx) & get_subsequent_mask(x)
+
+    elif mode == 'encoder':
+        return get_pad_mask(x, pad_idx)
+
+
+def beam_search_generate(encoder_output,
                          decoder,
                          vocab_size,
                          batch_size=3,
@@ -71,15 +102,19 @@ def beam_search_generate(context,
                          early_stopping=True
                          ):
     """
-	context: Transformer output, (batch size * num beams, sequence length, hidden dimension)
+	encoder_output: Transformer output, (batch size * num beams, sequence length, hidden dimension)
 			so, the input of Transformer encoder shape - > (batch size * num beams , sequence length)
 				code like this: input4encoder - > (batch size, sequence length)
 								input4encoder = torch.unsqueeze(input4encoder, 1)
 								input4encoder = input4encoder.repeat(1, num beams, 1)
 								input4encoder = input4encoder.reshape(batch size * num beams, sequence length)
-								context = Transformer.encoder(input4encoder)
+								encoder_output = Transformer.encoder(input4encoder)
 
 	"""
+
+    encoder_output = torch.unsqueeze(encoder_output, 1).repeat(1, num_beams, 1, 1).\
+        reshape(batch_size * num_beams, encoder_output.shape[1], encoder_output[2]).to(device)
+    encoder_mask =
 
     # 建立beam容器，每个样本一个
     generated_hyps = [
@@ -110,7 +145,8 @@ def beam_search_generate(context,
     while cur_len < max_length:
         # 将编码器得到的上下文向量和当前结果输入解码器，这部分代码要结合到Transformer模型的具体实现
         # output：(batch size *num beams, current length , vocab size)
-        output = decoder.decode_next_step(context, input_ids)
+        mask4decoder = MaskForDecoder(input_ids, pad_token_id)
+        output = decoder.decode_next_step(encoder_output, input_ids, mask4decoder,)
 
         # 取出最后一个时间步的各token概率，即当前条件概率
         # score : (batch size * num beams, vocab size),  = log + softmax + logit
