@@ -12,6 +12,7 @@ class BeamHypotheses(object):
         Initialize n-best list of hypotheses.
         """
         self.max_length = max_length - 1  # ignoring bos_token
+        # 束搜索的宽度
         self.num_beams = num_beams
         self.beams = []
         self.worst_score = 1e9
