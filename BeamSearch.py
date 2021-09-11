@@ -3,6 +3,11 @@
 # @Time    : 2021/9/5 3:04 下午
 # @File    : BeamSearch.py
 # @Software: PyCharm
+
+"""
+实现 参考的为 https://zhuanlan.zhihu.com/p/114669778
+但是我认为部分代码 有问题
+"""
 import torch
 import torch.nn.functional as F
 
@@ -109,16 +114,7 @@ def beam_search_generate(encoder,
                          length_penalty=0.1,
                          early_stopping=True
                          ):
-	"""
-	encoder_output: Transformer output, (batch size * num beams, sequence length, hidden dimension)
-			so, the input of Transformer encoder shape - > (batch size * num beams , sequence length)
-				code like this: input4encoder - > (batch size, sequence length)
-								input4encoder = torch.unsqueeze(input4encoder, 1)
-								input4encoder = input4encoder.repeat(1, num beams, 1)
-								input4encoder = input4encoder.reshape(batch size * num beams, sequence length)
-								encoder_output = Transformer.encoder(input4encoder)
 
-	"""
 	encoder_input = torch.unsqueeze(encoder_input, 1).repeat(1, num_beams, 1). \
 		reshape(batch_size * num_beams, encoder_input.shape[1]).to(device)
 	mask4encoder = MaskForDecoder(encoder_input, encoder_pad_token_id, mode='encoder')
