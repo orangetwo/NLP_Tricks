@@ -7,6 +7,9 @@
 """
 实现 参考的为 https://zhuanlan.zhihu.com/p/114669778
 但是我认为部分代码 有问题
+
+另外参考了 facebook的 XLM transformer
+https://github.com/huggingface/pytorch-openai-transformer-lm/blob/master/model_pytorch.py#L14
 """
 import torch
 import torch.nn.functional as F
