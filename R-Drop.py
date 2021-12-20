@@ -16,8 +16,7 @@ from torch import nn
 model = YourModel()
 
 
-def compute_kl_loss(self, p, q, pad_mask = None):
-
+def compute_kl_loss(self, p, q, pad_mask=None):
 	p_loss = F.kl_div(F.log_softmax(p, dim=-1), F.softmax(q, dim=-1), reduction='none')
 	q_loss = F.kl_div(F.log_softmax(q, dim=-1), F.softmax(p, dim=-1), reduction='none')
 
@@ -33,9 +32,9 @@ def compute_kl_loss(self, p, q, pad_mask = None):
 	loss = (p_loss + q_loss) / 2
 	return loss
 
+
 # keep dropout and forward twice
 logits = model(x)
-
 logits2 = model(x)
 
 # cross entropy loss for classifier
@@ -47,4 +46,3 @@ kl_loss = compute_kl_loss(logits, logits2)
 # carefully choose hyper-parameters
 α = 5
 loss = ce_loss + α * kl_loss
-
